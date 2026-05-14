@@ -16,6 +16,12 @@
         <h3>后台正在分析</h3>
         <p id="busyStage">任务初始化中...</p>
         <p id="busyMessage">请稍候，分析期间已锁定页面操作。</p>
+        <div class="busy-progress-wrap" aria-label="analysis-progress">
+          <div class="busy-progress-track">
+            <div id="busyProgressBar" class="busy-progress-bar" style="width: 0%"></div>
+          </div>
+          <div id="busyProgressText" class="busy-progress-text">0%</div>
+        </div>
         <div class="row">
           <button id="cancelJobBtn" type="button">取消当前任务</button>
         </div>
@@ -53,8 +59,6 @@
           </select>
           <button type="submit">分析单只股票</button>
         </form>
-        <pre id="analyzeResult"></pre>
-        <article id="analyzeMarkdownPreview" class="markdown-body"></article>
       </section>
 
       <section class="card tab-panel hidden" id="tab-favorites">

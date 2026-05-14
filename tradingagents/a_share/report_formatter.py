@@ -13,11 +13,12 @@ def _md_section(title: str, body: object) -> str:
     return f"## {title}\n\n{text}\n\n"
 
 
-def compose_stock_report_md(final_state: dict, processed_signal: str) -> str:
+def compose_stock_report_md(final_state: dict, processed_signal: str, company_name: str | None = None) -> str:
     inv = final_state.get("investment_debate_state") or {}
     risk = final_state.get("risk_debate_state") or {}
+    title_name = (company_name or "").strip() or str(final_state.get("company_of_interest") or "").strip()
     parts = [
-        f"# {final_state.get('company_of_interest')} — TradingAgents 报告\n\n",
+        f"# {title_name} — TradingAgents 报告\n\n",
         f"- **分析日期**: {final_state.get('trade_date')}\n\n",
         "---\n\n",
         _md_section("市场分析", final_state.get("market_report")),

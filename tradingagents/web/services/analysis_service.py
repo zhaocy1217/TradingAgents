@@ -268,7 +268,16 @@ def analyze_symbol_and_store(
         raise JobCancelledError("任务在生成结果后被取消")
     if progress_cb:
         progress_cb("format_report", "整理并格式化报告")
-    report_markdown = compose_stock_report_md(final_state, str(processed_signal))
+    display_company_name = (
+        str(final_state.get("company_of_interest") or "").strip()
+        if str(final_state.get("company_of_interest") or "").strip() != resolved_symbol
+        else ""
+    ) or company_name
+    report_markdown = compose_stock_report_md(
+        final_state,
+        str(processed_signal),
+        company_name=display_company_name,
+    )
     concise_summary = generate_concise_summary(report_markdown, str(processed_signal))
     report_markdown = inject_summary_into_report(report_markdown, concise_summary)
 

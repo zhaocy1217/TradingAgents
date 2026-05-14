@@ -23,6 +23,50 @@ function renderMarkdownTo(containerId, markdownText) {
   target.innerHTML = DOMPurify.sanitize(html);
 }
 
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function estimateProgress(job) {
+  const stage = (job?.stage || "").toLowerCase();
+  const message = (job?.message || "").toLowerCase();
+  const baseMap = {
+    queued: 5,
+    prepare: 10,
+    resolve_symbol: 16,
+    init_graph: 22,
+    run_graph: 40,
+    format_report: 86,
+    store_report: 93,
+    completed: 100,
+    cancelling: 95,
+    cancelled: 100,
+    failed: 100,
+  };
+  let pct = baseMap[stage] ?? 40;
+
+  if (stage === "run_graph") {
+    if (message.includes("market analyst")) pct = 30;
+    if (message.includes("social analyst")) pct = 35;
+    if (message.includes("news analyst")) pct = 40;
+    if (message.includes("fundamentals analyst")) pct = 45;
+    if (message.includes("research 辩论")) pct = 52;
+    if (message.includes("research manager")) pct = 60;
+    if (message.includes("trader 已生成")) pct = 70;
+    if (message.includes("risk 辩论")) pct = 78;
+    if (message.includes("提交 portfolio manager")) pct = 84;
+    if (message.includes("portfolio manager 已产出")) pct = 90;
+  }
+  return clamp(pct, 0, 100);
+}
+
+function updateBusyProgress(percent) {
+  const bar = el("busyProgressBar");
+  const text = el("busyProgressText");
+  if (bar) bar.style.width = `${clamp(percent, 0, 100)}%`;
+  if (text) text.textContent = `${Math.round(clamp(percent, 0, 100))}%`;
+}
+
 function wireTabs() {
   const buttons = document.querySelectorAll("[data-tab-target]");
   const panels = document.querySelectorAll(".tab-panel");
@@ -54,10 +98,12 @@ function setBusy(active, stage = "", message = "") {
     overlay.classList.remove("hidden");
     el("busyStage").textContent = stage || "后台处理中";
     el("busyMessage").textContent = message || "请稍候，分析期间已锁定页面操作。";
+    updateBusyProgress(5);
   } else {
     document.body.classList.remove("app-busy");
     overlay.classList.add("hidden");
     activeJobId = null;
+    updateBusyProgress(0);
   }
 }
 
@@ -178,24 +224,14 @@ async function runSingleAnalysis(payload) {
   });
   activeJobId = submitted.job_id;
   const result = await pollJob(submitted.job_id, (job) => {
-    el("analyzeResult").textContent = JSON.stringify(job, null, 2);
     el("busyStage").textContent = `阶段: ${job.stage || "running"}`;
     el("busyMessage").textContent = job.message || "后台分析中，请勿操作页面。";
+    updateBusyProgress(estimateProgress(job));
   });
   setBusy(false);
   if (result.status === "failed") {
     throw new Error(result.error || "分析失败");
   }
-  const concise = result.result?.concise_summary || {};
-  const display = {
-    report_id: result.result?.report_id,
-    symbol: result.result?.symbol,
-    analysis_date: result.result?.analysis_date,
-    signal: result.result?.signal,
-    concise_summary: concise,
-  };
-  el("analyzeResult").textContent = JSON.stringify(display, null, 2);
-  renderMarkdownTo("analyzeMarkdownPreview", result.result?.report_markdown || "");
   await loadReports();
 }
 
@@ -271,6 +307,7 @@ function wireEvents() {
         const job = resp.job || {};
         el("busyStage").textContent = `阶段: ${job.stage || "cancelling"}`;
         el("busyMessage").textContent = job.message || "取消请求已发送";
+        updateBusyProgress(estimateProgress(job));
       })
       .catch((e) => alert(e.message));
   };

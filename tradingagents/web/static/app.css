@@ -279,6 +279,35 @@ pre {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.46);
 }
 
+.busy-progress-wrap {
+  margin-top: 10px;
+}
+
+.busy-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(26, 45, 86, 0.9);
+  border: 1px solid rgba(105, 139, 214, 0.45);
+  overflow: hidden;
+}
+
+.busy-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #22d3ee);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.55);
+  transition: width 0.35s ease;
+}
+
+.busy-progress-text {
+  margin-top: 6px;
+  text-align: right;
+  color: #bed5ff;
+  font-size: 12px;
+}
+
 body.app-busy button,
 body.app-busy input,
 body.app-busy select,
