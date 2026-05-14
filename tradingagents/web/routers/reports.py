@@ -11,8 +11,22 @@ from tradingagents.web.services.report_summary import (
     generate_concise_summary,
     inject_summary_into_report,
 )
+from tradingagents.web.services.symbol_resolver import resolve_company_name_for_symbol
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+
+def _patch_company_name(conn, item: dict) -> dict:
+    current = str(item.get("company_name") or "").strip()
+    symbol = str(item.get("symbol") or "").strip()
+    if not symbol or (current and current != symbol):
+        return item
+    resolved = resolve_company_name_for_symbol(conn, symbol)
+    if not resolved:
+        return item
+    item["company_name"] = resolved
+    conn.execute("UPDATE analysis_reports SET company_name = ? WHERE id = ?", (resolved, item["id"]))
+    return item
 
 
 @router.get("")
@@ -35,7 +49,8 @@ def list_reports(request: Request, query: str = "", limit: int = Query(default=5
             """,
             params,
         ).fetchall()
-    return {"items": [dict(row) for row in rows], "total": len(rows)}
+        items = [_patch_company_name(conn, dict(row)) for row in rows]
+    return {"items": items, "total": len(items)}
 
 
 @router.get("/{report_id}")
@@ -49,19 +64,17 @@ def get_report(report_id: int, request: Request):
             """,
             (report_id,),
         ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Report not found")
-    item = dict(row)
+        if not row:
+            raise HTTPException(status_code=404, detail="Report not found")
+        item = _patch_company_name(conn, dict(row))
     try:
         item["meta"] = json.loads(item.get("meta_json") or "{}")
     except json.JSONDecodeError:
         item["meta"] = {}
-    concise_summary = (item.get("meta") or {}).get("concise_summary")
-    if not concise_summary:
-        concise_summary = generate_concise_summary(
-            item.get("report_markdown") or "",
-            item.get("signal") or "",
-        )
+    concise_summary = generate_concise_summary(
+        item.get("report_markdown") or "",
+        item.get("signal") or "",
+    )
     item["concise_summary"] = concise_summary
     item["report_markdown"] = inject_summary_into_report(
         item.get("report_markdown") or "",

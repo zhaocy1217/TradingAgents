@@ -18,7 +18,10 @@ from tradingagents.web.services.report_summary import (
     generate_concise_summary,
     inject_summary_into_report,
 )
-from tradingagents.web.services.symbol_resolver import resolve_symbol_candidates
+from tradingagents.web.services.symbol_resolver import (
+    resolve_company_name_for_symbol,
+    resolve_symbol_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +124,10 @@ def analyze_symbol_and_store(
     trade_date = normalize_analysis_date(analysis_date)
     resolved_symbol = (symbol or "").strip().upper()
     company_name = resolved_symbol
+    if resolved_symbol:
+        resolved_name = resolve_company_name_for_symbol(conn, resolved_symbol)
+        if resolved_name:
+            company_name = resolved_name
     if progress_cb:
         progress_cb("prepare", "准备参数并校验输入")
     if should_cancel_cb and should_cancel_cb():

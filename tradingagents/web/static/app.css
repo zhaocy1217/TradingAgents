@@ -175,6 +175,11 @@ button:hover {
   gap: 8px;
 }
 
+.report-actions {
+  margin: 0;
+  align-items: center;
+}
+
 .tabs {
   display: flex;
   gap: 10px;
@@ -320,5 +325,39 @@ body.app-busy #cancelJobBtn {
   .list-item {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .card {
+    background: #fff;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .report-actions,
+  .busy-overlay,
+  .tabs,
+  button {
+    display: none !important;
+  }
+
+  .markdown-body {
+    background: #fff;
+    border: none;
+    padding: 0;
+    color: #111;
   }
 }

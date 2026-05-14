@@ -12,7 +12,10 @@
     <main class="container">
       <header class="section-head">
         <h1>报告详情</h1>
-        <a href="/reports">返回报告列表</a>
+        <div class="row report-actions">
+          <button id="exportPdfBtn" type="button">导出 PDF</button>
+          <a href="/reports">返回报告列表</a>
+        </div>
       </header>
 
       <section class="card">
@@ -41,6 +44,9 @@
         const html = marked.parse(raw, { breaks: true });
         target.innerHTML = DOMPurify.sanitize(html);
       })();
+      document.getElementById("exportPdfBtn")?.addEventListener("click", () => {
+        window.print();
+      });
     </script>
   </body>
 </html>

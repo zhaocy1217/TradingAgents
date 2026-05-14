@@ -8,6 +8,8 @@ from datetime import datetime
 from tradingagents.a_share.universe import cn_six_digit_to_yahoo
 from tradingagents.web.services.http_utils import build_http_session
 
+_AK_NAME_BY_CODE_CACHE: dict[str, str] | None = None
+
 
 def _looks_like_symbol(raw: str) -> bool:
     up = raw.upper()
@@ -112,6 +114,58 @@ def _search_akshare(query: str, limit: int = 10) -> list[dict]:
             }
         )
     return out
+
+
+def _normalize_code_from_symbol(symbol: str) -> str | None:
+    raw = (symbol or "").strip().upper()
+    if re.fullmatch(r"\d{6}\.(SS|SZ)", raw):
+        return raw[:6]
+    if re.fullmatch(r"\d{6}", raw):
+        return raw
+    return None
+
+
+def _load_ak_name_by_code() -> dict[str, str]:
+    global _AK_NAME_BY_CODE_CACHE
+    if _AK_NAME_BY_CODE_CACHE is not None:
+        return _AK_NAME_BY_CODE_CACHE
+    try:
+        import akshare as ak
+    except ImportError:
+        _AK_NAME_BY_CODE_CACHE = {}
+        return _AK_NAME_BY_CODE_CACHE
+    df = ak.stock_info_a_code_name()
+    _AK_NAME_BY_CODE_CACHE = {
+        str(row["code"]).strip().zfill(6): str(row["name"]).strip()
+        for _, row in df.iterrows()
+        if str(row.get("code", "")).strip() and str(row.get("name", "")).strip()
+    }
+    return _AK_NAME_BY_CODE_CACHE
+
+
+def resolve_company_name_for_symbol(conn, symbol: str) -> str | None:
+    normalized = _normalize_symbol(symbol)
+    row = conn.execute(
+        """
+        SELECT company_name
+        FROM symbols_cache
+        WHERE symbol = ?
+        LIMIT 1
+        """,
+        (normalized,),
+    ).fetchone()
+    if row and str(row["company_name"]).strip():
+        return str(row["company_name"]).strip()
+
+    code = _normalize_code_from_symbol(normalized)
+    if not code:
+        return None
+    name_by_code = _load_ak_name_by_code()
+    name = (name_by_code.get(code) or "").strip()
+    if not name:
+        return None
+    _cache_symbol(conn, normalized, name, "akshare")
+    return name
 
 
 def resolve_symbol_candidates(conn, query: str, limit: int = 10) -> list[dict]:

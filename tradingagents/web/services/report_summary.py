@@ -16,11 +16,8 @@ def _extract_section(markdown: str, title: str) -> str:
     return (match.group("body") or "").strip()
 
 
-def _clean_line(text: str, max_len: int = 180) -> str:
-    cleaned = re.sub(r"\s+", " ", (text or "").strip())
-    if len(cleaned) <= max_len:
-        return cleaned
-    return cleaned[: max_len - 1].rstrip() + "..."
+def _clean_line(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip())
 
 
 def _extract_rating_text(signal: str, decision_text: str) -> str:
