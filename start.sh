@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Checkout dev + pull, then bootstrap conda, tradingagents env (Python 3.13), deps, web UI.
-# Optional: MINICONDA_INSTALL_DIR (default: $HOME/miniconda3), CONDA_ENV_NAME (default: tradingagents).
+# Optional: MINICONDA_INSTALL_DIR (default: $HOME/miniconda3),
+#           CONDA_ENV_PATH (default: $ROOT/.conda-env — env created in this repo).
 
 set -euo pipefail
 
@@ -40,10 +41,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 ensure_git
 git checkout dev
-git pull
+# Explicit strategy: avoids "Need to specify how to reconcile divergent branches" when pull.* is unset.
+git pull --ff-only origin dev
 
 INSTALL_DIR="${MINICONDA_INSTALL_DIR:-$HOME/miniconda3}"
-ENV_NAME="${CONDA_ENV_NAME:-tradingagents}"
+ENV_PATH="${CONDA_ENV_PATH:-$ROOT/.conda-env}"
 # Must match tradingagents.web.app:run (uvicorn port).
 PORT=8000
 HEALTH_URL="http://127.0.0.1:${PORT}/healthz"
@@ -80,10 +82,6 @@ init_conda() {
 	fi
 }
 
-conda_env_exists() {
-	conda env list | awk 'NF && $1 !~ /^#/ {print $1}' | grep -Fqx "$1"
-}
-
 stop_listeners_on_port() {
 	local p="$1"
 	if command -v fuser >/dev/null 2>&1; then
@@ -104,11 +102,11 @@ stop_listeners_on_port() {
 
 init_conda
 
-if ! conda_env_exists "$ENV_NAME"; then
-	conda create -n "$ENV_NAME" python=3.13 -y
+if [[ ! -x "${ENV_PATH}/bin/python" ]]; then
+	conda create --prefix "$ENV_PATH" python=3.13 -y
 fi
 
-conda activate "$ENV_NAME"
+conda activate "$ENV_PATH"
 
 cd "$ROOT"
 python -m pip install -U pip
@@ -125,4 +123,9 @@ if curl -sf "$HEALTH_URL" >/dev/null 2>&1; then
 	fi
 fi
 
-exec tradingagents-web
+WEB_LOG="${ROOT}/tradingagents-web.log"
+WEB_PID_FILE="${ROOT}/tradingagents-web.pid"
+nohup tradingagents-web >>"$WEB_LOG" 2>&1 &
+echo $! >"$WEB_PID_FILE"
+echo "tradingagents-web started (PID $(cat "$WEB_PID_FILE")), log: ${WEB_LOG}"
+echo "Health check: ${HEALTH_URL}"
