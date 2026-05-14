@@ -114,6 +114,7 @@ Create a virtual environment in any of your favorite environment managers:
 conda create -n tradingagents python=3.13
 conda activate tradingagents
 ```
+windows: .venv-tradingagents\Scripts\Activate.ps1
 
 Install the package and its dependencies:
 ```bash
@@ -201,7 +202,7 @@ pip install ".[web]"
 
 Run:
 ```bash
-.venv-tradingagents\Scripts\Activate.ps1
+
 tradingagents-web
 ```
 
