@@ -27,6 +27,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_news,
 )
+from tradingagents.dataflows.eastmoney_sentiment import fetch_eastmoney_sentiment_metrics
 from tradingagents.dataflows.reddit import fetch_reddit_posts
 from tradingagents.dataflows.stocktwits import fetch_stocktwits_messages
 
@@ -55,6 +56,7 @@ def create_sentiment_analyst(llm):
         news_block = get_news.func(ticker, start_date, end_date)
         stocktwits_block = fetch_stocktwits_messages(ticker, limit=30)
         reddit_block = fetch_reddit_posts(ticker)
+        eastmoney_block = fetch_eastmoney_sentiment_metrics(ticker)
 
         system_message = _build_system_message(
             ticker=ticker,
@@ -63,6 +65,7 @@ def create_sentiment_analyst(llm):
             news_block=news_block,
             stocktwits_block=stocktwits_block,
             reddit_block=reddit_block,
+            eastmoney_block=eastmoney_block,
         )
 
         prompt = ChatPromptTemplate.from_messages(
@@ -104,9 +107,10 @@ def _build_system_message(
     news_block: str,
     stocktwits_block: str,
     reddit_block: str,
+    eastmoney_block: str,
 ) -> str:
     """Assemble the sentiment-analyst system message with structured data blocks."""
-    return f"""You are a financial market sentiment analyst. Your task is to produce a comprehensive sentiment report for {ticker} covering the period from {start_date} to {end_date}, drawing on three complementary data sources that have already been collected for you.
+    return f"""You are a financial market sentiment analyst. Your task is to produce a comprehensive sentiment report for {ticker} covering the period from {start_date} to {end_date}, drawing on four complementary data sources that have already been collected for you.
 
 ## Data sources (pre-fetched, in this prompt)
 
@@ -131,11 +135,18 @@ Community discussion. Engagement signal via upvote score and comment count. Subr
 {reddit_block}
 <end_of_reddit>
 
+### Eastmoney sentiment metrics — 千股千评（偏A股本土交易情绪）
+Numerical retail/institution attention metrics for CN tickers. Treat as an additional sentiment signal, not a standalone trading rule.
+
+<start_of_eastmoney_sentiment>
+{eastmoney_block}
+<end_of_eastmoney_sentiment>
+
 ## How to analyze this data (best practices)
 
 1. **Read the StockTwits Bullish/Bearish ratio as a leading retail-sentiment signal.** A 70/30 bullish/bearish split is moderately bullish; ≥90/10 may indicate over-extension and contrarian risk; 50/50 is uncertainty. Sample size matters — base rates on the actual message count, not percentages alone.
 
-2. **Look for cross-source divergences.** If news framing is bearish but StockTwits is overwhelmingly bullish, that mismatch is itself a signal — it can mean retail is leaning into a thesis the news flow hasn't caught up to (or vice versa, that retail is chasing while institutions are cautious).
+2. **Look for cross-source divergences.** If news framing is bearish but StockTwits/Reddit/Eastmoney metrics skew bullish, that mismatch is itself a signal — it can mean retail is leaning into a thesis the news flow hasn't caught up to (or vice versa, that retail is chasing while institutions are cautious).
 
 3. **Weight Reddit posts by engagement.** A 400-upvote / 200-comment thread reflects community attention; a 3-upvote post is noise. Read the body excerpts for context — the title alone often misleads.
 
@@ -143,7 +154,7 @@ Community discussion. Engagement signal via upvote score and comment count. Subr
 
 5. **Identify recurring narrative themes.** What topic keeps coming up across sources? That's the dominant narrative driving current sentiment.
 
-6. **Be honest about data limits.** If StockTwits returned only a handful of messages, or one or more sources returned an "<unavailable>" placeholder, the sentiment read is less robust — flag this caveat explicitly. If the sources are silent on a given subreddit, say so.
+6. **Be honest about data limits.** If StockTwits returned only a handful of messages, Eastmoney metrics are unavailable, or one or more sources returned an "<unavailable>" placeholder, the sentiment read is less robust — flag this caveat explicitly. If the sources are silent on a given subreddit, say so.
 
 7. **Identify catalysts and risks** that emerge across sources — news of upcoming earnings, product launches, competitive threats, macro headlines, etc.
 
@@ -157,7 +168,7 @@ Produce a sentiment report covering, in order:
 2. **Source-by-source breakdown** — what each of news / StockTwits / Reddit is telling you, with specific evidence (cite message counts, ratios, notable posts).
 3. **Divergences, alignments, and key narratives** across sources.
 4. **Catalysts and risks** surfaced by the data.
-5. **Markdown table** at the end summarizing key sentiment signals, their direction, source, and supporting evidence.
+5. **Markdown table** at the end summarizing key sentiment signals, their direction, source, and supporting evidence (include Eastmoney row when available).
 
 {get_language_instruction()}"""
 
