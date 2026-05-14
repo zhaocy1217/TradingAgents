@@ -28,6 +28,51 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 
+def _coerce_structured_invoke_result(
+    result: Any,
+    schema: type[BaseModel],
+    *,
+    agent_name: str,
+) -> BaseModel:
+    """Turn provider-specific invoke payloads into a concrete ``schema`` instance.
+
+    LangChain / provider stacks differ: some return a Pydantic model, some a
+    plain dict, some a wrapper dict with ``parsed`` / ``parsing_error``, and
+    weak models occasionally yield ``None``. Normalising here keeps render
+    functions strict and avoids ``'NoneType' object has no attribute 'rating'``.
+    """
+    if isinstance(result, dict) and "parsed" in result:
+        err = result.get("parsing_error")
+        if err is not None:
+            raise ValueError(f"structured parsing_error: {err}")
+        result = result.get("parsed")
+
+    if result is None:
+        raise ValueError("structured LLM returned None")
+
+    if isinstance(result, schema):
+        return result
+
+    if isinstance(result, dict):
+        try:
+            return schema.model_validate(result)
+        except Exception as exc:
+            raise ValueError(f"structured dict did not validate as {schema.__name__}: {exc}") from exc
+
+    if isinstance(result, BaseModel):
+        try:
+            return schema.model_validate(result.model_dump(mode="json"))
+        except Exception as exc:
+            raise ValueError(
+                f"structured {type(result).__name__} could not coerce to {schema.__name__}: {exc}"
+            ) from exc
+
+    raise ValueError(
+        f"{agent_name}: unexpected structured-output type {type(result)!r}; "
+        f"expected {schema.__name__}, dict, or None wrapper"
+    )
+
+
 def bind_structured(llm: Any, schema: type[T], agent_name: str) -> Optional[Any]:
     """Return ``llm.with_structured_output(schema)`` or ``None`` if unsupported.
 
@@ -51,6 +96,8 @@ def invoke_structured_or_freetext(
     prompt: Any,
     render: Callable[[T], str],
     agent_name: str,
+    *,
+    schema: Optional[type[BaseModel]] = None,
 ) -> str:
     """Run the structured call and render to markdown; fall back to free-text on any failure.
 
@@ -58,11 +105,20 @@ def invoke_structured_or_freetext(
     invocations, a list of message dicts for chat models that take that
     shape). The same value is forwarded to the free-text path so the
     fallback sees the same input the structured call did.
+
+    Pass ``schema`` (the same Pydantic model passed to ``with_structured_output``)
+    so dict / wrapper / mismatched-model payloads from the provider are coerced
+    before ``render`` runs.
     """
     if structured_llm is not None:
         try:
             result = structured_llm.invoke(prompt)
-            return render(result)
+            if schema is not None:
+                model = _coerce_structured_invoke_result(result, schema, agent_name=agent_name)
+                return render(model)  # type: ignore[arg-type]
+            if result is None:
+                raise ValueError("structured LLM returned None")
+            return render(result)  # type: ignore[arg-type]
         except Exception as exc:
             logger.warning(
                 "%s: structured-output invocation failed (%s); retrying once as free text",

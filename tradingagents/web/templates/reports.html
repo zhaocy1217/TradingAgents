@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="section-head">
+        <h1>报告列表</h1>
+        <a href="/">返回首页</a>
+      </header>
+
+      <section class="card">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Symbol</th>
+              <th>公司</th>
+              <th>日期</th>
+              <th>信号</th>
+              <th>详情</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in reports %}
+            <tr>
+              <td>{{ item.id }}</td>
+              <td>{{ item.symbol }}</td>
+              <td>{{ item.company_name }}</td>
+              <td>{{ item.analysis_date }}</td>
+              <td>{{ item.signal }}</td>
+              <td><a href="/reports/{{ item.id }}">查看</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>

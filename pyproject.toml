@@ -34,12 +34,25 @@ dependencies = [
 
 [project.scripts]
 tradingagents = "cli.main:app"
+tradingagents-web = "tradingagents.web.app:run"
+
+[project.optional-dependencies]
+china-universe = [
+    "akshare>=1.14.0",
+]
+web = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "jinja2>=3.1.4",
+    "python-multipart>=0.0.12",
+]
 
 [tool.setuptools.packages.find]
 include = ["tradingagents*", "cli*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
+tradingagents = ["web/templates/*.html", "web/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

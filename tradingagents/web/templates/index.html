@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <div id="busyOverlay" class="busy-overlay hidden">
+      <div class="busy-card">
+        <h3>后台正在分析</h3>
+        <p id="busyStage">任务初始化中...</p>
+        <p id="busyMessage">请稍候，分析期间已锁定页面操作。</p>
+        <div class="row">
+          <button id="cancelJobBtn" type="button">取消当前任务</button>
+        </div>
+      </div>
+    </div>
+    <main class="container">
+      <header>
+        <h1>TradingAgents A股分析 Web</h1>
+        <p>输入公司名/股票名，触发分析并保存报告。</p>
+      </header>
+
+      <section class="card">
+        <h2>股票检索与分析</h2>
+        <div class="row">
+          <input id="symbolQuery" type="text" placeholder="例如：贵州茅台 / 600519" />
+          <button id="searchBtn">搜索Symbol</button>
+        </div>
+        <div id="symbolResults" class="list"></div>
+
+        <form id="analyzeForm" class="row form-grid">
+          <input id="symbolInput" type="text" placeholder="Symbol，如 600519.SS" />
+          <input id="analysisDateInput" type="text" placeholder="分析日期 YYYY-MM-DD（可空）" />
+          <button type="submit">分析单只股票</button>
+        </form>
+        <pre id="analyzeResult"></pre>
+      </section>
+
+      <section class="card">
+        <h2>TopXXX 分析</h2>
+        <form id="topAnalyzeForm" class="row form-grid">
+          <input id="topNInput" type="number" min="1" max="300" value="10" />
+          <input id="topDateInput" type="text" placeholder="分析日期 YYYY-MM-DD（可空）" />
+          <button type="submit">触发Top分析</button>
+        </form>
+        <pre id="topAnalyzeResult"></pre>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>收藏列表</h2>
+          <button id="refreshFavBtn">刷新</button>
+        </div>
+        <div id="favoritesList" class="list"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>最近一周热股</h2>
+          <button id="refreshHotBtn">刷新热榜数据</button>
+        </div>
+        <canvas id="hotChart" height="110"></canvas>
+        <div id="hotList" class="list"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>报告查询</h2>
+          <a href="/reports">查看完整列表</a>
+        </div>
+        <div class="row">
+          <input id="reportQuery" type="text" placeholder="输入股票名或代码" />
+          <button id="searchReportBtn">搜索报告</button>
+        </div>
+        <div id="reportList" class="list"></div>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

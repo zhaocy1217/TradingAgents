@@ -69,6 +69,7 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
             prompt,
             render_pm_decision,
             "Portfolio Manager",
+            schema=PortfolioDecision,
         )
 
         new_risk_debate_state = {

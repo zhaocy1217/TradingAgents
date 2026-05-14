@@ -13,14 +13,83 @@ import pytest
 
 from tradingagents.agents.managers.research_manager import create_research_manager
 from tradingagents.agents.schemas import (
+    PortfolioDecision,
     PortfolioRating,
     ResearchPlan,
     TraderAction,
     TraderProposal,
+    render_pm_decision,
     render_research_plan,
     render_trader_proposal,
 )
 from tradingagents.agents.trader.trader import create_trader
+from tradingagents.agents.utils.structured import invoke_structured_or_freetext
+
+
+# ---------------------------------------------------------------------------
+# Structured invoke coercion (dict / parsed wrapper / None)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_invoke_coerces_dict_to_portfolio_decision():
+    structured = MagicMock()
+    structured.invoke.return_value = {
+        "rating": "Hold",
+        "executive_summary": "Wait for clarity.",
+        "investment_thesis": "Mixed signals from analysts.",
+    }
+    plain = MagicMock()
+    out = invoke_structured_or_freetext(
+        structured,
+        plain,
+        "prompt",
+        render_pm_decision,
+        "Portfolio Manager",
+        schema=PortfolioDecision,
+    )
+    assert "**Rating**: Hold" in out
+    plain.invoke.assert_not_called()
+
+
+@pytest.mark.unit
+def test_invoke_accepts_parsed_wrapper_dict():
+    decision = PortfolioDecision(
+        rating=PortfolioRating.BUY,
+        executive_summary="Accumulate on dips.",
+        investment_thesis="Strong fundamentals.",
+    )
+    structured = MagicMock()
+    structured.invoke.return_value = {"parsed": decision, "parsing_error": None}
+    plain = MagicMock()
+    out = invoke_structured_or_freetext(
+        structured,
+        plain,
+        "prompt",
+        render_pm_decision,
+        "Portfolio Manager",
+        schema=PortfolioDecision,
+    )
+    assert "**Rating**: Buy" in out
+    plain.invoke.assert_not_called()
+
+
+@pytest.mark.unit
+def test_invoke_falls_back_when_structured_returns_none():
+    structured = MagicMock()
+    structured.invoke.return_value = None
+    plain = MagicMock()
+    plain.invoke.return_value = MagicMock(content="**Rating**: Sell\n\n**Executive Summary**: Exit.\n\n**Investment Thesis**: Risk.")
+    out = invoke_structured_or_freetext(
+        structured,
+        plain,
+        "prompt",
+        render_pm_decision,
+        "Portfolio Manager",
+        schema=PortfolioDecision,
+    )
+    assert "Sell" in out
+    plain.invoke.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

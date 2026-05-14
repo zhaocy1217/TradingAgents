@@ -116,6 +116,8 @@ DEFAULT_CONFIG = _apply_env_overrides({
         ".L":   "^FTSE",    # London (FTSE 100)
         ".TO":  "^GSPTSE",  # Toronto (TSX Composite)
         ".AX":  "^AXJO",    # Australia (ASX 200)
+        ".SS":  "000300.SS",  # Shanghai-listed (yfinance); CSI 300 index as A-share benchmark
+        ".SZ":  "000300.SS",  # Shenzhen / ChiNext (same broad onshore benchmark)
         "":     "SPY",      # default for US-listed tickers (no suffix)
     },
 })

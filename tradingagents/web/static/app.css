@@ -1,0 +1,120 @@
+body {
+  margin: 0;
+  font-family: Inter, "Microsoft YaHei", sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.card {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.form-grid input {
+  flex: 1;
+}
+
+input,
+button {
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.list-item {
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #334155;
+  padding: 8px;
+  text-align: left;
+}
+
+pre {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.busy-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.busy-overlay.hidden {
+  display: none;
+}
+
+.busy-card {
+  width: min(560px, 92vw);
+  background: #0b1220;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+body.app-busy button,
+body.app-busy input,
+body.app-busy a {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+body.app-busy #cancelJobBtn {
+  pointer-events: auto;
+  opacity: 1;
+}

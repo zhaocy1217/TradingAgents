@@ -185,6 +185,35 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+### FastAPI A-share Web UI
+
+This repo also ships an optional FastAPI + Jinja web app for A-share workflows:
+- symbol/company search
+- single-stock analysis and report persistence
+- Top-N batch trigger
+- favorite list
+- weekly hot-stock list
+
+Install web dependencies:
+```bash
+pip install ".[web]"
+```
+
+Run:
+```bash
+tradingagents-web
+```
+
+Open:
+```text
+http://127.0.0.1:8000
+```
+
+Optional DB path:
+```bash
+export TRADINGAGENTS_WEB_DB_PATH=/path/to/web.sqlite3
+```
+
 ## TradingAgents Package
 
 ### Implementation Details

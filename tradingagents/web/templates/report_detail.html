@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="section-head">
+        <h1>报告详情</h1>
+        <a href="/reports">返回报告列表</a>
+      </header>
+
+      <section class="card">
+        <p><strong>ID:</strong> {{ report.id }}</p>
+        <p><strong>Symbol:</strong> {{ report.symbol }}</p>
+        <p><strong>公司:</strong> {{ report.company_name }}</p>
+        <p><strong>日期:</strong> {{ report.analysis_date }}</p>
+        <p><strong>信号:</strong> {{ report.signal }}</p>
+        <hr />
+        <pre class="markdown">{{ report.report_markdown }}</pre>
+      </section>
+    </main>
+  </body>
+</html>
