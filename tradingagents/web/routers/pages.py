@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from tradingagents.web.routers.common import open_db
+from tradingagents.web.services.report_summary import (
+    generate_concise_summary,
+    inject_summary_into_report,
+)
 
 router = APIRouter(tags=["pages"])
 
@@ -45,7 +51,7 @@ def report_detail_page(report_id: int, request: Request):
     with open_db(request) as conn:
         row = conn.execute(
             """
-            SELECT id, symbol, company_name, analysis_date, signal, report_markdown, created_at
+            SELECT id, symbol, company_name, analysis_date, signal, report_markdown, meta_json, created_at
             FROM analysis_reports
             WHERE id = ?
             """,
@@ -53,8 +59,21 @@ def report_detail_page(report_id: int, request: Request):
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Report not found")
+    report = dict(row)
+    try:
+        report["meta"] = json.loads(report.get("meta_json") or "{}")
+    except json.JSONDecodeError:
+        report["meta"] = {}
+    report["concise_summary"] = report["meta"].get("concise_summary") or generate_concise_summary(
+        report.get("report_markdown") or "",
+        report.get("signal") or "",
+    )
+    report["report_markdown"] = inject_summary_into_report(
+        report.get("report_markdown") or "",
+        report["concise_summary"],
+    )
     return templates.TemplateResponse(
         request,
         "report_detail.html",
-        {"title": f"报告 {report_id}", "report": dict(row)},
+        {"title": f"报告 {report_id}", "report": report},
     )

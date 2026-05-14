@@ -7,12 +7,16 @@ import os
 import threading
 import time
 from datetime import date, datetime, timedelta
-from typing import Callable
+from typing import Any, Callable, Literal
 
 from tradingagents.a_share.report_formatter import compose_stock_report_md
 from tradingagents.a_share.universe import ListedName, resolve_top_universe
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.web.services.report_summary import (
+    generate_concise_summary,
+    inject_summary_into_report,
+)
 from tradingagents.web.services.symbol_resolver import resolve_symbol_candidates
 
 
@@ -52,16 +56,22 @@ def _graph_phase_by_elapsed(elapsed_sec: int) -> str:
     return current
 
 
-def _build_graph_config() -> dict:
+def _build_graph_config(mode: Literal["light", "deep"] = "light") -> dict:
     config = DEFAULT_CONFIG.copy()
     openai_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
     deepseek_key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
     if (config.get("llm_provider") or "").lower() == "openai" and not openai_key and deepseek_key:
         config["llm_provider"] = "deepseek"
-        config["deep_think_llm"] = "deepseek-reasoner"
+        config["deep_think_llm"] = "deepseek-v4-pro"
         config["quick_think_llm"] = "deepseek-v4-flash"
-    config["max_debate_rounds"] = 5
-    config["max_risk_discuss_rounds"] = 5
+    if mode == "deep":
+        # 深度模式：保持旧版 Web 策略（更充分讨论，耗时更长）。
+        config["max_debate_rounds"] = 5
+        config["max_risk_discuss_rounds"] = 5
+    else:
+        # 轻度模式：默认优先响应速度，沿用全局配置并限制极端高轮数。
+        config["max_debate_rounds"] = min(int(config.get("max_debate_rounds", 1)), 2)
+        config["max_risk_discuss_rounds"] = min(int(config.get("max_risk_discuss_rounds", 1)), 2)
     config["checkpoint_enabled"] = False
     return config
 
@@ -101,6 +111,7 @@ def analyze_symbol_and_store(
     symbol: str | None = None,
     query: str | None = None,
     analysis_date: str | None = None,
+    analysis_mode: Literal["light", "deep"] = "light",
     progress_cb: Callable[[str, str], None] | None = None,
     should_cancel_cb: Callable[[], bool] | None = None,
 ) -> dict:
@@ -127,7 +138,7 @@ def analyze_symbol_and_store(
         raise JobCancelledError("任务在图初始化前已取消")
     if progress_cb:
         progress_cb("init_graph", f"初始化分析图: {resolved_symbol}")
-    config = _build_graph_config()
+    config = _build_graph_config(analysis_mode)
     graph = TradingAgentsGraph(
         selected_analysts=["market", "social", "news", "fundamentals"],
         config=config,
@@ -146,10 +157,77 @@ def analyze_symbol_and_store(
 
     run_result: dict[str, object] = {}
     run_error: dict[str, Exception] = {}
+    progress_trace = {
+        "market_done": False,
+        "social_done": False,
+        "news_done": False,
+        "fundamentals_done": False,
+        "research_round": 0,
+        "research_manager_done": False,
+        "trader_done": False,
+        "risk_round": 0,
+        "risk_judge_done": False,
+        "portfolio_done": False,
+        "last_detail": "",
+    }
+
+    def _emit_detail(message: str) -> None:
+        if not progress_cb:
+            return
+        progress_trace["last_detail"] = message
+        progress_cb("run_graph", message)
+
+    def _on_state_update(state: dict[str, Any]) -> None:
+        """Emit milestone-based progress from graph state snapshots."""
+        if not progress_cb:
+            return
+
+        if state.get("market_report") and not progress_trace["market_done"]:
+            progress_trace["market_done"] = True
+            _emit_detail("Market Analyst 已完成")
+        if state.get("sentiment_report") and not progress_trace["social_done"]:
+            progress_trace["social_done"] = True
+            _emit_detail("Social Analyst 已完成")
+        if state.get("news_report") and not progress_trace["news_done"]:
+            progress_trace["news_done"] = True
+            _emit_detail("News Analyst 已完成")
+        if state.get("fundamentals_report") and not progress_trace["fundamentals_done"]:
+            progress_trace["fundamentals_done"] = True
+            _emit_detail("Fundamentals Analyst 已完成")
+
+        invest_state = state.get("investment_debate_state") or {}
+        invest_round = int(invest_state.get("count") or 0)
+        if invest_round > int(progress_trace["research_round"]):
+            progress_trace["research_round"] = invest_round
+            _emit_detail(f"Research 辩论进行到第 {invest_round} 轮")
+        if state.get("investment_plan") and not progress_trace["research_manager_done"]:
+            progress_trace["research_manager_done"] = True
+            _emit_detail("Research Manager 已产出投资结论")
+
+        if state.get("trader_investment_plan") and not progress_trace["trader_done"]:
+            progress_trace["trader_done"] = True
+            _emit_detail("Trader 已生成交易计划")
+
+        risk_state = state.get("risk_debate_state") or {}
+        risk_round = int(risk_state.get("count") or 0)
+        if risk_round > int(progress_trace["risk_round"]):
+            progress_trace["risk_round"] = risk_round
+            _emit_detail(f"Risk 辩论进行到第 {risk_round} 轮")
+        if risk_state.get("judge_decision") and not progress_trace["risk_judge_done"]:
+            progress_trace["risk_judge_done"] = True
+            _emit_detail("Risk 辩论已收敛，提交 Portfolio Manager")
+
+        if state.get("final_trade_decision") and not progress_trace["portfolio_done"]:
+            progress_trace["portfolio_done"] = True
+            _emit_detail("Portfolio Manager 已产出最终决策，正在收尾")
 
     def _target() -> None:
         try:
-            final_state, processed_signal = graph.propagate(resolved_symbol, trade_date)
+            final_state, processed_signal = graph.propagate(
+                resolved_symbol,
+                trade_date,
+                state_update_cb=_on_state_update,
+            )
             run_result["final_state"] = final_state
             run_result["processed_signal"] = processed_signal
         except Exception as exc:  # pragma: no cover - passthrough from graph internals
@@ -161,8 +239,9 @@ def analyze_symbol_and_store(
     while worker.is_alive():
         elapsed = int(time.time() - started_at)
         if progress_cb and elapsed > 0 and elapsed % 5 == 0:
-            phase = _graph_phase_by_elapsed(elapsed)
-            msg = f"{phase} 运行中，已耗时 {elapsed}s"
+            detail = str(progress_trace.get("last_detail") or "").strip()
+            phase = detail or _graph_phase_by_elapsed(elapsed)
+            msg = f"{phase}，已耗时 {elapsed}s"
             if should_cancel_cb and should_cancel_cb():
                 msg += "（已收到取消请求，将在当前阶段收尾后停止）"
             progress_cb("run_graph", msg)
@@ -180,6 +259,8 @@ def analyze_symbol_and_store(
     if progress_cb:
         progress_cb("format_report", "整理并格式化报告")
     report_markdown = compose_stock_report_md(final_state, str(processed_signal))
+    concise_summary = generate_concise_summary(report_markdown, str(processed_signal))
+    report_markdown = inject_summary_into_report(report_markdown, concise_summary)
 
     if progress_cb:
         progress_cb("store_report", "写入数据库")
@@ -193,6 +274,8 @@ def analyze_symbol_and_store(
         meta={
             "query": query,
             "provider": config.get("llm_provider"),
+            "analysis_mode": analysis_mode,
+            "concise_summary": concise_summary,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
         },
     )
@@ -202,6 +285,7 @@ def analyze_symbol_and_store(
         "company_name": final_state.get("company_of_interest") or company_name,
         "analysis_date": trade_date,
         "signal": str(processed_signal),
+        "concise_summary": concise_summary,
         "report_markdown": report_markdown,
     }
 
@@ -221,6 +305,7 @@ def analyze_top_and_store(
     top_n: int,
     analysis_date: str | None = None,
     max_stocks: int | None = None,
+    analysis_mode: Literal["light", "deep"] = "light",
     progress_cb: Callable[[str, str], None] | None = None,
     should_cancel_cb: Callable[[], bool] | None = None,
 ) -> dict:
@@ -246,6 +331,7 @@ def analyze_top_and_store(
                     symbol=listed_name.symbol,
                     query=listed_name.name,
                     analysis_date=trade_date,
+                    analysis_mode=analysis_mode,
                     progress_cb=progress_cb,
                     should_cancel_cb=should_cancel_cb,
                 )

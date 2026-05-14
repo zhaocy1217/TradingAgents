@@ -58,4 +58,4 @@ def create_app(db_path: str | None = None) -> FastAPI:
 def run() -> None:
     import uvicorn
 
-    uvicorn.run("tradingagents.web.app:create_app", factory=True, host="127.0.0.1", port=8000)
+    uvicorn.run("tradingagents.web.app:create_app", factory=True, host="0.0.0.0", port=8000)

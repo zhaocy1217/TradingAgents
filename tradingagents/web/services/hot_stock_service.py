@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from datetime import date, datetime, timedelta
 
 from tradingagents.a_share.universe import cn_six_digit_to_yahoo
@@ -15,6 +17,7 @@ _HEADERS = {
     ),
     "Referer": "https://quote.eastmoney.com/",
 }
+logger = logging.getLogger(__name__)
 
 
 def _fetch_hot_rank_eastmoney(limit: int = 20) -> list[dict]:
@@ -61,11 +64,23 @@ def _fallback_hot_from_quote(limit: int = 20) -> list[dict]:
         "fields": "f12,f14,f3,f8",
         "ut": "fa5fd1943c7b386f172d6893dbfba10b",
     }
-    session = build_http_session()
-    session.headers.update(_HEADERS)
-    resp = session.get(url, params=params, timeout=12)
-    resp.raise_for_status()
-    rows = (resp.json().get("data") or {}).get("diff") or []
+    last_exc: Exception | None = None
+    rows = []
+    for attempt in range(1, 4):
+        try:
+            session = build_http_session()
+            session.headers.update(_HEADERS)
+            resp = session.get(url, params=params, timeout=12)
+            resp.raise_for_status()
+            rows = (resp.json().get("data") or {}).get("diff") or []
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 3:
+                # Short linear backoff for transient disconnects.
+                time.sleep(0.6 * attempt)
+            else:
+                raise
 
     out: list[dict] = []
     for row in rows[:limit]:
@@ -90,15 +105,30 @@ def _fallback_hot_from_quote(limit: int = 20) -> list[dict]:
 def refresh_hot_stocks(conn, days: int = 7, limit: int = 20) -> dict:
     today = date.today()
     inserted = 0
-    used_source = "eastmoney_rank"
+    used_source = "eastmoney_quote_fallback"
+    errors: list[dict] = []
     for delta in range(days):
         rank_date = (today - timedelta(days=delta)).strftime("%Y-%m-%d")
+        items: list[dict] = []
         try:
-            items = _fetch_hot_rank_eastmoney(limit=limit)
-            used_source = "eastmoney_rank"
-        except Exception:
+            # NOTE: `getAllCurrHqRankingList` has become unstable/404 in some
+            # environments. Use `push2` quote endpoint as the primary source.
             items = _fallback_hot_from_quote(limit=limit)
             used_source = "eastmoney_quote_fallback"
+        except Exception as quote_exc:
+            used_source = "none"
+            errors.append(
+                {
+                    "rank_date": rank_date,
+                    "quote_error": str(quote_exc),
+                }
+            )
+            logger.warning(
+                "Failed to refresh hot stocks for %s from quote endpoint: %s",
+                rank_date,
+                quote_exc,
+            )
+            items = []
 
         conn.execute("DELETE FROM hot_stocks_weekly WHERE rank_date = ?", (rank_date,))
         for item in items:
@@ -119,7 +149,13 @@ def refresh_hot_stocks(conn, days: int = 7, limit: int = 20) -> dict:
                 ),
             )
             inserted += 1
-    return {"days": days, "inserted": inserted, "source": used_source}
+    return {
+        "days": days,
+        "inserted": inserted,
+        "source": used_source,
+        "failed_days": len(errors),
+        "errors": errors,
+    }
 
 
 def get_week_hot_stocks(conn, days: int = 7, limit: int = 100) -> list[dict]:

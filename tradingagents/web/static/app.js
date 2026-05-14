@@ -11,6 +11,39 @@ function el(id) {
   return document.getElementById(id);
 }
 
+function renderMarkdownTo(containerId, markdownText) {
+  const target = el(containerId);
+  if (!target) return;
+  const raw = markdownText || "";
+  if (!raw) {
+    target.innerHTML = "";
+    return;
+  }
+  const html = marked.parse(raw, { breaks: true });
+  target.innerHTML = DOMPurify.sanitize(html);
+}
+
+function wireTabs() {
+  const buttons = document.querySelectorAll("[data-tab-target]");
+  const panels = document.querySelectorAll(".tab-panel");
+  if (!buttons.length || !panels.length) return;
+
+  buttons.forEach((btn) => {
+    btn.onclick = () => {
+      const targetId = btn.dataset.tabTarget;
+      buttons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      panels.forEach((panel) => {
+        if (panel.id === targetId) {
+          panel.classList.remove("hidden");
+        } else {
+          panel.classList.add("hidden");
+        }
+      });
+    };
+  });
+}
+
 let activeJobId = null;
 
 function setBusy(active, stage = "", message = "") {
@@ -59,8 +92,23 @@ async function loadFavorites() {
   renderItems("favoritesList", data.items, (item) => {
     return `
       <div><strong>${item.symbol}</strong> ${item.company_name} ${item.note || ""}</div>
-      <button data-symbol="${item.symbol}" class="remove-fav-btn">删除</button>
+      <div>
+        <button data-symbol="${item.symbol}" class="analyze-fav-btn">分析股票</button>
+        <button data-symbol="${item.symbol}" class="remove-fav-btn">删除</button>
+      </div>
     `;
+  });
+  document.querySelectorAll(".analyze-fav-btn").forEach((btn) => {
+    btn.onclick = async () => {
+      const payload = {
+        symbol: btn.dataset.symbol,
+        analysis_date: el("favoriteAnalysisDateInput")?.value.trim() || null,
+        analysis_mode: el("favoriteModeInput")?.value || "light",
+      };
+      await runSingleAnalysis(payload);
+      const analyzeTabBtn = document.querySelector('[data-tab-target="tab-analyze"]');
+      if (analyzeTabBtn) analyzeTabBtn.click();
+    };
   });
   document.querySelectorAll(".remove-fav-btn").forEach((btn) => {
     btn.onclick = async () => {
@@ -112,7 +160,12 @@ async function analyzeOne(event) {
   const payload = {
     symbol: el("symbolInput").value.trim() || null,
     analysis_date: el("analysisDateInput").value.trim() || null,
+    analysis_mode: el("modeInput").value || "light",
   };
+  await runSingleAnalysis(payload);
+}
+
+async function runSingleAnalysis(payload) {
   setBusy(true, "提交任务", "正在创建分析任务...");
   const submitted = await requestJson("/api/analyze/submit", {
     method: "POST",
@@ -129,33 +182,16 @@ async function analyzeOne(event) {
   if (result.status === "failed") {
     throw new Error(result.error || "分析失败");
   }
-  el("analyzeResult").textContent = JSON.stringify(result.result, null, 2);
-  await loadReports();
-}
-
-async function analyzeTop(event) {
-  event.preventDefault();
-  const payload = {
-    top_n: Number(el("topNInput").value || 10),
-    analysis_date: el("topDateInput").value.trim() || null,
+  const concise = result.result?.concise_summary || {};
+  const display = {
+    report_id: result.result?.report_id,
+    symbol: result.result?.symbol,
+    analysis_date: result.result?.analysis_date,
+    signal: result.result?.signal,
+    concise_summary: concise,
   };
-  setBusy(true, "提交Top任务", "正在创建批量分析任务...");
-  const submitted = await requestJson("/api/analyze/top/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  activeJobId = submitted.job_id;
-  const result = await pollJob(submitted.job_id, (job) => {
-    el("topAnalyzeResult").textContent = JSON.stringify(job, null, 2);
-    el("busyStage").textContent = `阶段: ${job.stage || "running"}`;
-    el("busyMessage").textContent = job.message || "后台批量分析中，请勿操作页面。";
-  });
-  setBusy(false);
-  if (result.status === "failed") {
-    throw new Error(result.error || "批量分析失败");
-  }
-  el("topAnalyzeResult").textContent = JSON.stringify(result.result, null, 2);
+  el("analyzeResult").textContent = JSON.stringify(display, null, 2);
+  renderMarkdownTo("analyzeMarkdownPreview", result.result?.report_markdown || "");
   await loadReports();
 }
 
@@ -214,17 +250,13 @@ async function loadReports() {
 }
 
 function wireEvents() {
+  wireTabs();
   el("searchBtn").onclick = () => searchSymbols().catch((e) => alert(e.message));
   el("refreshFavBtn").onclick = () => loadFavorites().catch((e) => alert(e.message));
   el("refreshHotBtn").onclick = () => refreshHot().catch((e) => alert(e.message));
   el("searchReportBtn").onclick = () => loadReports().catch((e) => alert(e.message));
   el("analyzeForm").onsubmit = (e) =>
     analyzeOne(e).catch((err) => {
-      setBusy(false);
-      alert(err.message);
-    });
-  el("topAnalyzeForm").onsubmit = (e) =>
-    analyzeTop(e).catch((err) => {
       setBusy(false);
       alert(err.message);
     });

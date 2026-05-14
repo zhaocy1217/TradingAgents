@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
     <link rel="stylesheet" href="/static/app.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   </head>
   <body>
     <main class="container">
@@ -20,8 +22,25 @@
         <p><strong>日期:</strong> {{ report.analysis_date }}</p>
         <p><strong>信号:</strong> {{ report.signal }}</p>
         <hr />
-        <pre class="markdown">{{ report.report_markdown }}</pre>
+        <h3>精简结论</h3>
+        <p><strong>预期方向:</strong> {{ report.concise_summary.direction }}</p>
+        <p><strong>建议:</strong> {{ report.concise_summary.suggestion }}</p>
+        <p><strong>依据:</strong> {{ report.concise_summary.rationale }}</p>
+        <hr />
+        <h3>完整分析报告</h3>
+        <pre id="reportMarkdownSource" class="hidden-markdown-source">{{ report.report_markdown }}</pre>
+        <article id="reportMarkdownRendered" class="markdown-body"></article>
       </section>
     </main>
+    <script>
+      (function renderMarkdown() {
+        const source = document.getElementById("reportMarkdownSource");
+        const target = document.getElementById("reportMarkdownRendered");
+        if (!source || !target) return;
+        const raw = source.textContent || "";
+        const html = marked.parse(raw, { breaks: true });
+        target.innerHTML = DOMPurify.sanitize(html);
+      })();
+    </script>
   </body>
 </html>

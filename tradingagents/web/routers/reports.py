@@ -7,6 +7,10 @@ import json
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from tradingagents.web.routers.common import open_db
+from tradingagents.web.services.report_summary import (
+    generate_concise_summary,
+    inject_summary_into_report,
+)
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -52,4 +56,15 @@ def get_report(report_id: int, request: Request):
         item["meta"] = json.loads(item.get("meta_json") or "{}")
     except json.JSONDecodeError:
         item["meta"] = {}
+    concise_summary = (item.get("meta") or {}).get("concise_summary")
+    if not concise_summary:
+        concise_summary = generate_concise_summary(
+            item.get("report_markdown") or "",
+            item.get("signal") or "",
+        )
+    item["concise_summary"] = concise_summary
+    item["report_markdown"] = inject_summary_into_report(
+        item.get("report_markdown") or "",
+        concise_summary,
+    )
     return item

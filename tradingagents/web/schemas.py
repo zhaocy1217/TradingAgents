@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -15,9 +17,11 @@ class AnalyzeRequest(BaseModel):
     query: str | None = None
     symbol: str | None = None
     analysis_date: str | None = None
+    analysis_mode: Literal["light", "deep"] = "light"
 
 
 class AnalyzeTopRequest(BaseModel):
     top_n: int = Field(default=10, ge=1, le=300)
     analysis_date: str | None = None
     max_stocks: int | None = Field(default=None, ge=1, le=300)
+    analysis_mode: Literal["light", "deep"] = "light"

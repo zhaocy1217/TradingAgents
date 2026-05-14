@@ -201,6 +201,7 @@ pip install ".[web]"
 
 Run:
 ```bash
+.venv-tradingagents\Scripts\Activate.ps1
 tradingagents-web
 ```
 

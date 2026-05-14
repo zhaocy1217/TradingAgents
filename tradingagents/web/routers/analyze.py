@@ -47,6 +47,7 @@ def analyze_one(payload: AnalyzeRequest, request: Request):
                     symbol=payload.symbol,
                     query=payload.query,
                     analysis_date=payload.analysis_date,
+                    analysis_mode=payload.analysis_mode,
                 )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -61,6 +62,7 @@ def analyze_top(payload: AnalyzeTopRequest, request: Request):
                 top_n=payload.top_n,
                 analysis_date=payload.analysis_date,
                 max_stocks=payload.max_stocks,
+                analysis_mode=payload.analysis_mode,
             )
 
 
@@ -92,6 +94,7 @@ def _run_async_job(
                         symbol=req.symbol,
                         query=req.query,
                         analysis_date=req.analysis_date,
+                        analysis_mode=req.analysis_mode,
                         progress_cb=_progress,
                         should_cancel_cb=_should_cancel,
                     )
@@ -102,6 +105,7 @@ def _run_async_job(
                         top_n=req.top_n,
                         analysis_date=req.analysis_date,
                         max_stocks=req.max_stocks,
+                        analysis_mode=req.analysis_mode,
                         progress_cb=_progress,
                         should_cancel_cb=_should_cancel,
                     )
@@ -121,6 +125,7 @@ def submit_analyze_one(payload: AnalyzeRequest, request: Request):
             "symbol": payload.symbol,
             "query": payload.query,
             "analysis_date": payload.analysis_date,
+            "analysis_mode": payload.analysis_mode,
         },
     )
     worker = threading.Thread(
@@ -147,6 +152,7 @@ def submit_analyze_top(payload: AnalyzeTopRequest, request: Request):
             "top_n": payload.top_n,
             "analysis_date": payload.analysis_date,
             "max_stocks": payload.max_stocks,
+            "analysis_mode": payload.analysis_mode,
         },
     )
     worker = threading.Thread(
