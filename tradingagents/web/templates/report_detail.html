@@ -25,11 +25,6 @@
         <p><strong>日期:</strong> {{ report.analysis_date }}</p>
         <p><strong>信号:</strong> {{ report.signal }}</p>
         <hr />
-        <h3>精简结论</h3>
-        <p><strong>预期方向:</strong> {{ report.concise_summary.direction }}</p>
-        <p><strong>建议:</strong> {{ report.concise_summary.suggestion }}</p>
-        <p><strong>依据:</strong> {{ report.concise_summary.rationale }}</p>
-        <hr />
         <h3>完整分析报告</h3>
         <pre id="reportMarkdownSource" class="hidden-markdown-source">{{ report.report_markdown }}</pre>
         <article id="reportMarkdownRendered" class="markdown-body"></article>
