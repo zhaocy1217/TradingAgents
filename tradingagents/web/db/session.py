@@ -21,8 +21,11 @@ def default_db_path() -> str:
 
 def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     path = db_path or default_db_path()
-    conn = sqlite3.connect(path)
+    # Concurrent web workers: allow waiting for locks; WAL coordinates readers/writers better.
+    conn = sqlite3.connect(path, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     return conn
 
 

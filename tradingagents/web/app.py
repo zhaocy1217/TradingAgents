@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,12 +14,24 @@ from tradingagents.web.routers import analyze, favorites, hot, pages, reports, s
 from tradingagents.web.services.job_manager import JobManager
 
 
+def _cors_allow_origins() -> list[str]:
+    raw = (os.getenv("TRADINGAGENTS_CORS_ORIGINS") or "").strip()
+    if not raw:
+        return ["*"]
+    origins = [o.strip() for o in raw.split(",") if o.strip()]
+    return origins if origins else ["*"]
+
+
 def create_app(db_path: str | None = None) -> FastAPI:
     app = FastAPI(title="TradingAgents A-share Web", version="0.1.0")
+    origins = _cors_allow_origins()
+    # Browsers reject Access-Control-Allow-Origin: * together with credentialed fetches;
+    # keep credentials off when using wildcard (typical for this app — no cookie auth).
+    use_credentials = origins != ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=origins,
+        allow_credentials=use_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

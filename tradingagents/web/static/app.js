@@ -1,5 +1,37 @@
+function apiBase() {
+  const meta = document.querySelector('meta[name="ta-api-base"]');
+  const raw = meta?.getAttribute("content");
+  return raw ? raw.trim().replace(/\/$/, "") : "";
+}
+
+function apiUrl(path) {
+  if (!path || path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  const base = apiBase();
+  if (!base) {
+    return path;
+  }
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${p}`;
+}
+
 async function requestJson(url, options = {}) {
-  const resp = await fetch(url, options);
+  const resolved = apiUrl(url);
+  let resp;
+  try {
+    resp = await fetch(resolved, options);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    if (typeof window !== "undefined" && window.location?.protocol === "file:") {
+      throw new Error(
+        "当前页面是本地 file:// 打开的，浏览器无法请求 API。请运行 Web 服务并用 http:// 地址访问（例如 uvicorn 启动后的地址）。",
+      );
+    }
+    throw new Error(
+      `网络请求失败（${detail}）。请确认后端已启动且页面与 API 同源，或在部署时设置环境变量 TRADINGAGENTS_PUBLIC_API_BASE 与 TRADINGAGENTS_CORS_ORIGINS。`,
+    );
+  }
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(text || `HTTP ${resp.status}`);

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -33,10 +34,11 @@ def _patch_company_name(conn, item: dict) -> dict:
 @router.get("/", response_class=HTMLResponse)
 def index_page(request: Request):
     templates = request.app.state.templates
+    api_base = (os.getenv("TRADINGAGENTS_PUBLIC_API_BASE") or "").strip().rstrip("/")
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"title": "TradingAgents A股分析"},
+        {"title": "TradingAgents A股分析", "api_base": api_base},
     )
 
 

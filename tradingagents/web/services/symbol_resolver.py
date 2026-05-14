@@ -157,6 +157,9 @@ def resolve_company_name_for_symbol(conn, symbol: str) -> str | None:
     if row and str(row["company_name"]).strip():
         return str(row["company_name"]).strip()
 
+    # Release the DB snapshot before loading the full akshare universe (very slow).
+    conn.commit()
+
     code = _normalize_code_from_symbol(normalized)
     if not code:
         return None
@@ -180,6 +183,9 @@ def resolve_symbol_candidates(conn, query: str, limit: int = 10) -> list[dict]:
     cached = _search_cache(conn, cleaned, limit)
     if cached:
         return cached
+
+    # End any read transaction before slow outbound HTTP so other requests are not blocked.
+    conn.commit()
 
     fetched: list[dict] = []
     try:
