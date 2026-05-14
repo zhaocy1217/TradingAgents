@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -18,6 +19,8 @@ from tradingagents.web.services.report_summary import (
     inject_summary_into_report,
 )
 from tradingagents.web.services.symbol_resolver import resolve_symbol_candidates
+
+logger = logging.getLogger(__name__)
 
 
 class JobCancelledError(RuntimeError):

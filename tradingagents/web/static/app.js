@@ -120,6 +120,10 @@ async function loadFavorites() {
 
 async function searchSymbols() {
   const q = el("symbolQuery").value.trim();
+  const resultContainer = el("symbolResults");
+  if (resultContainer) {
+    resultContainer.innerHTML = '<div class="list-item">搜索中...</div>';
+  }
   if (!q) return;
   const data = await requestJson(`/api/symbols/search?q=${encodeURIComponent(q)}`);
   renderItems("symbolResults", data.items, (item) => {
