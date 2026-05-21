@@ -185,6 +185,30 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+### Streamlit Chat UI
+
+TradingAgents also ships with a Streamlit chat-style interface.
+
+Run from the repository root:
+
+```bash
+./start.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+.\start.ps1
+```
+
+Direct launch command:
+
+```bash
+python -m streamlit run tradingagents/ui/streamlit_app.py
+```
+
+The Streamlit app uses the same provider API keys as the CLI (`OPENAI_API_KEY`, `GOOGLE_API_KEY`, etc.) and lets you configure ticker, analysis date, models, research depth, analysts, and output language from the sidebar.
+
 ## TradingAgents Package
 
 ### Implementation Details
